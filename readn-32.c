@@ -26,8 +26,10 @@ struct timeval tv_start;
 
 int usage()
 {
-    char msg[] = "Usage: nread-32 remote_host:port\n"
-                 "default port: 24\n";
+    char msg[] = "Usage: nread-32 [-b bufsize] [-I] remote_host:port\n"
+                 "default port: 24\n"
+                 "-b bufsize: readn() buffer size. suffix k for kilo, m for m\n"
+                 "-I: ignore error\n";
     fprintf(stderr, "%s\n", msg);
 
     return 0;
@@ -134,13 +136,17 @@ int main(int argc, char *argv[])
 
     int c;
     int bufsize = 128*1024;
-    while ( (c = getopt(argc, argv, "b:dI")) != -1) {
+    while ( (c = getopt(argc, argv, "b:dhI")) != -1) {
         switch (c) {
             case 'b':
                 bufsize = get_num(optarg);
                 break;
             case 'd':
                 debug = 1;
+                break;
+            case 'h':
+                usage();
+                exit(0);
                 break;
             case 'I':
                 ignore_data_mismatch = 1;
