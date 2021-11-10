@@ -23,6 +23,7 @@ int debug = 0;
 volatile sig_atomic_t has_alarm = 0;
 int ignore_data_mismatch = 0;
 struct timeval tv_start;
+int error_count = 0;
 
 int usage()
 {
@@ -53,8 +54,8 @@ int print_rate(unsigned long interval_read_bytes, unsigned long interval_read_co
     // printf("interval_read_bytes: %ld\n", interval_read_bytes);
     double rx_rate_MB_s = (double) interval_read_bytes / interval_sec / 1024.0 / 1024.0;
     double rx_rate_Gb_s = (double) interval_read_bytes * 8 / interval_sec / 1000000000.0;
-    printf("%.6f %.6f %.3f MB/s %.3f Gbps %ld %d\n", 
-        elapsed_sec, interval_sec, rx_rate_MB_s, rx_rate_Gb_s, interval_read_count, rcvbuf);
+    printf("%.6f %.6f %.3f MB/s %.3f Gbps %ld %d %d\n", 
+        elapsed_sec, interval_sec, rx_rate_MB_s, rx_rate_Gb_s, interval_read_count, rcvbuf, error_count);
     fflush(stdout);
     return 0;
 }
@@ -102,6 +103,7 @@ int verify_data(unsigned char *buf, int bufsize)
             fprintf(stderr, "seq_num: %u, value_in_buf %u\n", seq_num, value_in_buf);
         }
         if (value_in_buf != seq_num) {
+            error_count ++;
             struct timeval now, elapsed;
             gettimeofday(&now, NULL);
             timersub(&now, &tv_start, &elapsed);
