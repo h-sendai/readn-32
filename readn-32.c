@@ -152,7 +152,7 @@ int child_proc(int pipe_command[2], int pipe_data[2], char *remote_host, int por
          * 'r' read the registers below
          * 'e' exit
          */
-        int n = read(pipe_command[0], command_buf, sizeof(command_buf));
+        __attribute__((unused)) int n = read(pipe_command[0], command_buf, sizeof(command_buf));
         if (command_buf[0] == 'r') {
             counter[0] = get_reg_byte("192.168.10.12", 0x10100000);
             counter[1] = get_reg_byte("192.168.10.12", 0x10110000);
@@ -272,7 +272,7 @@ int main(int argc, char *argv[])
     }
 
     unsigned char command_read_reg = 'r';
-    unsigned char command_exit     = 'e';
+    unsigned char __attribute__((unused)) command_exit     = 'e';
 
     /* XXX */
     /* after connect, the board send zero (0x00000000) twice. */
@@ -317,9 +317,20 @@ int main(int argc, char *argv[])
         interval_read_count += 1;
         interval_read_bytes += n;
         if (verify_data(buf, bufsize) < 0) {
+            struct timeval tv_now, elapsed;
+            gettimeofday(&tv_now, NULL);
+            timersub(&tv_now, &tv_start, &elapsed);
             //write(pipe_command[1], &command_read_reg, 1);
             read(pipe_data[0], &full_counter, sizeof(full_counter));
-            printf("full_counter: %u\n", full_counter);
+            printf("%ld.%06ld full_counter: %u\n", elapsed.tv_sec, elapsed.tv_usec, full_counter);
+
+            set_timer(0, 0, 0, 0);
+            sleep(5);
+            gettimeofday(&tv_now, NULL);
+            timersub(&tv_now, &tv_start, &elapsed);
+            write(pipe_command[1], &command_read_reg, 1);
+            read(pipe_data[0], &full_counter, sizeof(full_counter));
+            printf("%ld.%06ld full_counter: %u\n", elapsed.tv_sec, elapsed.tv_usec, full_counter);
             exit(0);
         }
         total_read_bytes += n;

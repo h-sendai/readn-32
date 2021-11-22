@@ -1,5 +1,7 @@
 #include "rbcp.h"
 
+extern struct timeval tv_start;
+
 /* MY_SOCKET */
 static int udp_socket(void)
 {
@@ -133,7 +135,10 @@ int get_reg_byte_stream(char *remote_ip, unsigned int address, unsigned char *bu
     int n;
     n = write(sockfd, &rbcp_request_header, sizeof(rbcp_request_header));
     if (n < 0) {
-        warn("send rbcp request packet to %s failed", remote_ip);
+        struct timeval tv_now, elapsed;
+        gettimeofday(&tv_now, NULL);
+        timersub(&tv_now, &tv_start, &elapsed);
+        warn("%ld.%06ld send rbcp request packet to %s failed", elapsed.tv_sec, elapsed.tv_usec, remote_ip);
         return -1;
     }
 
@@ -145,7 +150,10 @@ int get_reg_byte_stream(char *remote_ip, unsigned int address, unsigned char *bu
     iov[1].iov_len  = len;
     n = readv(sockfd, iov, sizeof(iov)/sizeof(iov[0]));
     if (n < 0) {
-        warn("rbcp reply packet from %s read failed", remote_ip);
+        struct timeval tv_now, elapsed;
+        gettimeofday(&tv_now, NULL);
+        timersub(&tv_now, &tv_start, &elapsed);
+        warn("%ld.%06ld rbcp reply packet from %s read failed", elapsed.tv_sec, elapsed.tv_usec, remote_ip);
         close(sockfd);
         return -1;
     }
