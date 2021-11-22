@@ -24,6 +24,7 @@ volatile sig_atomic_t has_alarm = 0;
 int ignore_data_mismatch = 0;
 struct timeval tv_start;
 int error_count = 0;
+int ring_bell = 0;
 
 int usage()
 {
@@ -109,6 +110,9 @@ int verify_data(unsigned char *buf, int bufsize)
             timersub(&now, &tv_start, &elapsed);
             //printf("%ld.%06ld\n", now.tv_sec, now.tv_usec);
             fprintf(stderr, "%ld.%06ld data mismatch.  expected: %u (0x %x), got %u (0x %x). diff: %u\n", elapsed.tv_sec, elapsed.tv_usec, seq_num, seq_num, value_in_buf, value_in_buf, value_in_buf - seq_num);
+            if (ring_bell) {
+                fprintf(stderr, "\a");
+            }
             if (ignore_data_mismatch) {
                 seq_num = value_in_buf;
             }
@@ -138,10 +142,13 @@ int main(int argc, char *argv[])
 
     int c;
     int bufsize = 128*1024;
-    while ( (c = getopt(argc, argv, "b:dhI")) != -1) {
+    while ( (c = getopt(argc, argv, "b:dhIB")) != -1) {
         switch (c) {
             case 'b':
                 bufsize = get_num(optarg);
+                break;
+            case 'B':
+                ring_bell = 1;
                 break;
             case 'd':
                 debug = 1;
