@@ -18,6 +18,7 @@
 #include "readn.h"
 #include "set_cpu.h"
 #include "set_timer.h"
+#include "rbcp.h"
 
 int debug = 0;
 volatile sig_atomic_t has_alarm = 0;
@@ -44,7 +45,7 @@ void sig_alarm(int signo)
 }
 
 int print_rate(unsigned long interval_read_bytes, unsigned long interval_read_count,
-    struct timeval tv_now, struct timeval tv_prev, int rcvbuf)
+    struct timeval tv_now, struct timeval tv_prev, int rcvbuf, unsigned int full_counter)
 {
     struct timeval tv_interval, tv_elapsed;
     timersub(&tv_now, &tv_start, &tv_elapsed);
@@ -55,8 +56,8 @@ int print_rate(unsigned long interval_read_bytes, unsigned long interval_read_co
     // printf("interval_read_bytes: %ld\n", interval_read_bytes);
     double rx_rate_MB_s = (double) interval_read_bytes / interval_sec / 1024.0 / 1024.0;
     double rx_rate_Gb_s = (double) interval_read_bytes * 8 / interval_sec / 1000000000.0;
-    printf("%.6f %.6f %.3f MB/s %.3f Gbps %ld %d %d\n", 
-        elapsed_sec, interval_sec, rx_rate_MB_s, rx_rate_Gb_s, interval_read_count, rcvbuf, error_count);
+    printf("%.6f %.6f %.3f MB/s %.3f Gbps %ld %d %d %u\n", 
+        elapsed_sec, interval_sec, rx_rate_MB_s, rx_rate_Gb_s, interval_read_count, rcvbuf, error_count, full_counter);
     fflush(stdout);
     return 0;
 }
@@ -121,13 +122,58 @@ int verify_data(unsigned char *buf, int bufsize)
                 pid_t pid = getpid();
                 snprintf(filename, sizeof(filename), "invalid-data.%d", pid);
                 write_to_disk(buf, bufsize, filename);
-                exit(1);
+                return -1;
+                // exit(1);
             }
+            return -1;
         }
         int_p++;
         seq_num++;
     }
     
+    return 0;
+}
+
+int child_proc(int pipe_command[2], int pipe_data[2], char *remote_host, int port)
+{
+    if (close(pipe_command[1]) < 0) {
+        warnx("close() on pipe_command[1] (write end) (child)");
+        killpg(0, SIGTERM);
+    }
+    if (close(pipe_data[0]) < 0) {
+        warnx("close() on pipe_data[0] (read end) (child)");
+        killpg(0, SIGTERM);
+    }
+
+    unsigned char counter[4];
+    unsigned char command_buf[1];
+    for ( ; ; ) {
+        /* command
+         * 'r' read the registers below
+         * 'e' exit
+         */
+        int n = read(pipe_command[0], command_buf, sizeof(command_buf));
+        if (command_buf[0] == 'r') {
+            counter[0] = get_reg_byte("192.168.10.12", 0x10100000);
+            counter[1] = get_reg_byte("192.168.10.12", 0x10110000);
+            counter[2] = get_reg_byte("192.168.10.12", 0x10120000);
+            counter[3] = get_reg_byte("192.168.10.12", 0x10130000);
+
+            unsigned int value = 256*256*256*counter[3] +
+                                     256*256*counter[2] +
+                                         256*counter[1] +
+                                             counter[0] ;
+            int n = write(pipe_data[1], &value, sizeof(value));
+            if (n < 0) {
+                warnx("write() for data (child)");
+                killpg(0, SIGTERM);
+            }
+        }
+        else if (command_buf[0] == 'e') {
+            exit(0);
+        }
+    }
+
     return 0;
 }
 
@@ -178,6 +224,31 @@ int main(int argc, char *argv[])
         port = strtol(tmp, NULL, 0);
     }
 
+    int pipe_command[2];
+    int pipe_data[2];
+
+    if (pipe(pipe_command) < 0) {
+        err(1, "pipe for command");
+    }
+    if (pipe(pipe_data) < 0) {
+        err(1, "pipe for data");
+    }
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        child_proc(pipe_command, pipe_data, remote_host, port);
+        exit(0);
+    }
+
+    /* following is parent */
+    if (close(pipe_command[0]) < 0) {
+        err(1, "close for pipe_command[0] (read end) (parent)");
+    }
+    if (close(pipe_data[1]) < 0) {
+        err(1, "close for pipe_data[1] (write end) (parent)");
+    }
+        
+
     int sockfd = tcp_socket();
     if (sockfd < 0) {
         exit(1);
@@ -200,6 +271,9 @@ int main(int argc, char *argv[])
         err(1, "malloc for buf (size: %d)\n", bufsize);
     }
 
+    unsigned char command_read_reg = 'r';
+    unsigned char command_exit     = 'e';
+
     /* XXX */
     /* after connect, the board send zero (0x00000000) twice. */
     /* We read 4 bytes for first zero (0x00000000) here and discard the data */
@@ -209,14 +283,18 @@ int main(int argc, char *argv[])
         if (n < 0) {
             err(1, "readn() for disard_data");
         }
+        write(pipe_command[1], &command_read_reg, 1);
     }
 
+    unsigned int full_counter;
     for ( ; ; ) {
         if (has_alarm) {
             gettimeofday(&tv_now, NULL);
             int rcvbuf = get_so_rcvbuf(sockfd);
             // printf("so_rcvbuf: %d\n", rcvbuf);
-            print_rate(interval_read_bytes, interval_read_count, tv_now, tv_prev, rcvbuf);
+            read(pipe_data[0], &full_counter, sizeof(full_counter));
+            write(pipe_command[1], &command_read_reg, 1);
+            print_rate(interval_read_bytes, interval_read_count, tv_now, tv_prev, rcvbuf, full_counter);
             has_alarm = 0;
             interval_read_bytes = 0;
             interval_read_count = 0;
@@ -238,7 +316,12 @@ int main(int argc, char *argv[])
         }
         interval_read_count += 1;
         interval_read_bytes += n;
-        verify_data(buf, bufsize);
+        if (verify_data(buf, bufsize) < 0) {
+            //write(pipe_command[1], &command_read_reg, 1);
+            read(pipe_data[0], &full_counter, sizeof(full_counter));
+            printf("full_counter: %u\n", full_counter);
+            exit(0);
+        }
         total_read_bytes += n;
     }
         
