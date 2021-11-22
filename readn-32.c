@@ -200,6 +200,17 @@ int main(int argc, char *argv[])
         err(1, "malloc for buf (size: %d)\n", bufsize);
     }
 
+    /* XXX */
+    /* after connect, the board send zero (0x00000000) twice. */
+    /* We read 4 bytes for first zero (0x00000000) here and discard the data */
+    {
+        unsigned char disard_data[4];
+        int n = readn(sockfd, disard_data, sizeof(disard_data));
+        if (n < 0) {
+            err(1, "readn() for disard_data");
+        }
+    }
+
     for ( ; ; ) {
         if (has_alarm) {
             gettimeofday(&tv_now, NULL);
