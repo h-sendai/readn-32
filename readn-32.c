@@ -78,7 +78,7 @@ int write_to_disk(unsigned char *buf, int bufsize, char *filename)
 
 int verify_data(unsigned char *buf, int bufsize)
 {
-    static unsigned int seq_num = 0;
+    static unsigned int seq_num = 1;
     unsigned int *int_p;
 
     // for (int i = 0; i < bufsize/sizeof(int); ++i) {
@@ -203,6 +203,7 @@ int main(int argc, char *argv[])
     /* XXX */
     /* after connect, the board send zero (0x00000000) twice. */
     /* We read 4 bytes for first zero (0x00000000) here and discard the data */
+#if 0
     {
         unsigned char disard_data[4];
         int n = readn(sockfd, disard_data, sizeof(disard_data));
@@ -210,6 +211,7 @@ int main(int argc, char *argv[])
             err(1, "readn() for disard_data");
         }
     }
+#endif
 
     for ( ; ; ) {
         if (has_alarm) {
