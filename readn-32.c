@@ -289,6 +289,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
+    write(pipe_command[1], &command_read_reg, 1);
     unsigned int full_counter;
     for ( ; ; ) {
         if (has_alarm) {
