@@ -190,10 +190,11 @@ int main(int argc, char *argv[])
     unsigned long interval_read_bytes = 0;
     unsigned long interval_read_count = 0;
     unsigned long total_read_bytes;
+    int do_verify_data = 1;
 
     int c;
     int bufsize = 128*1024;
-    while ( (c = getopt(argc, argv, "b:dhIB")) != -1) {
+    while ( (c = getopt(argc, argv, "b:dhIBV")) != -1) {
         switch (c) {
             case 'b':
                 bufsize = get_num(optarg);
@@ -210,6 +211,9 @@ int main(int argc, char *argv[])
                 break;
             case 'I':
                 ignore_data_mismatch = 1;
+                break;
+            case 'V':
+                do_verify_data = 0;
                 break;
             default:
                 break;
@@ -324,22 +328,24 @@ int main(int argc, char *argv[])
         }
         interval_read_count += 1;
         interval_read_bytes += n;
-        if (verify_data(buf, bufsize) < 0) {
-            struct timeval tv_now, elapsed;
-            gettimeofday(&tv_now, NULL);
-            timersub(&tv_now, &tv_start, &elapsed);
-            //write(pipe_command[1], &command_read_reg, 1);
-            read(pipe_data[0], &full_counter, sizeof(full_counter));
-            printf("%ld.%06ld full_counter: %u\n", elapsed.tv_sec, elapsed.tv_usec, full_counter);
+        if (do_verify_data) {
+            if (verify_data(buf, bufsize) < 0) {
+                struct timeval tv_now, elapsed;
+                gettimeofday(&tv_now, NULL);
+                timersub(&tv_now, &tv_start, &elapsed);
+                //write(pipe_command[1], &command_read_reg, 1);
+                read(pipe_data[0], &full_counter, sizeof(full_counter));
+                printf("%ld.%06ld full_counter: %u\n", elapsed.tv_sec, elapsed.tv_usec, full_counter);
 
-            set_timer(0, 0, 0, 0);
-            sleep(5);
-            gettimeofday(&tv_now, NULL);
-            timersub(&tv_now, &tv_start, &elapsed);
-            write(pipe_command[1], &command_read_reg, 1);
-            read(pipe_data[0], &full_counter, sizeof(full_counter));
-            printf("%ld.%06ld full_counter: %u\n", elapsed.tv_sec, elapsed.tv_usec, full_counter);
-            exit(0);
+                set_timer(0, 0, 0, 0);
+                sleep(5);
+                gettimeofday(&tv_now, NULL);
+                timersub(&tv_now, &tv_start, &elapsed);
+                write(pipe_command[1], &command_read_reg, 1);
+                read(pipe_data[0], &full_counter, sizeof(full_counter));
+                printf("%ld.%06ld full_counter: %u\n", elapsed.tv_sec, elapsed.tv_usec, full_counter);
+                exit(0);
+            }
         }
         total_read_bytes += n;
     }
