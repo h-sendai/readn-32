@@ -29,13 +29,14 @@ int ring_bell = 0;
 
 int usage()
 {
-    char msg[] = "Usage: nread-32 [-b bufsize] [-I] remote_host:port\n"
+    char msg[] = "Usage: nread-32 [-b bufsize] [-I] [-V] remote_host:port\n"
                  "default port: 24\n"
                  "-d: debug\n"
                  "-h: help\n"
                  "-b bufsize: readn() buffer size. suffix k for kilo, m for m\n"
                  "-I: ignore error\n"
-                 "-B: ring bell if error\n";
+                 "-B: ring bell if error\n"
+                 "-V: do not verify data\n";
 
     fprintf(stderr, "%s\n", msg);
 
