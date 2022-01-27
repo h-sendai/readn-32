@@ -15,6 +15,7 @@ OBJS += my_socket.o
 OBJS += readn.o
 OBJS += set_cpu.o
 OBJS += set_timer.o
+OBJS += rbcp.o
 $(PROG): $(OBJS)
 
 clean:
