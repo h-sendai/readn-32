@@ -160,10 +160,10 @@ int child_proc(int pipe_command[2], int pipe_data[2], char *remote_host, int por
          */
         __attribute__((unused)) int n = read(pipe_command[0], command_buf, sizeof(command_buf));
         if (command_buf[0] == 'r') {
-            counter[0] = get_reg_byte("192.168.10.12", 0x10100000);
-            counter[1] = get_reg_byte("192.168.10.12", 0x10110000);
-            counter[2] = get_reg_byte("192.168.10.12", 0x10120000);
-            counter[3] = get_reg_byte("192.168.10.12", 0x10130000);
+            counter[0] = get_reg_byte(remote_host, 0x10100000);
+            counter[1] = get_reg_byte(remote_host, 0x10110000);
+            counter[2] = get_reg_byte(remote_host, 0x10120000);
+            counter[3] = get_reg_byte(remote_host, 0x10130000);
 
             unsigned int value = 256*256*256*counter[3] +
                                      256*256*counter[2] +
