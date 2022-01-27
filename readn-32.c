@@ -31,8 +31,12 @@ int usage()
 {
     char msg[] = "Usage: nread-32 [-b bufsize] [-I] remote_host:port\n"
                  "default port: 24\n"
+                 "-d: debug\n"
+                 "-h: help\n"
                  "-b bufsize: readn() buffer size. suffix k for kilo, m for m\n"
-                 "-I: ignore error\n";
+                 "-I: ignore error\n"
+                 "-B: ring bell if error\n";
+
     fprintf(stderr, "%s\n", msg);
 
     return 0;
